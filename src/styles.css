@@ -1,0 +1,17 @@
+
+* { box-sizing: border-box; }
+body { font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; margin:0; padding:12px; background:#fafafa; color:#111 }
+.container { max-width:980px; margin:0 auto; }
+.card { background:#fff; border:1px solid #eee; padding:12px; border-radius:10px; box-shadow: 0 1px 0 rgba(0,0,0,0.02); }
+.header { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px; }
+.row { display:flex; gap:8px; align-items:center; }
+.input, select, button { padding:8px; border-radius:8px; border:1px solid #ddd; }
+.button { background:#111; color:#fff; border:none; cursor:pointer; }
+.small { font-size:13px; color:#555; }
+.exp-list { max-height:360px; overflow:auto; margin-top:8px; }
+.exp-item { padding:10px; border-bottom:1px solid #f6f6f6; display:flex; justify-content:space-between; align-items:flex-start; gap:8px; }
+.tag { font-size:12px; padding:4px 6px; border-radius:6px; background:#f5f5f5; }
+.alert { color:#8b0000; font-weight:700; }
+.success { color:green; font-weight:700; }
+.profile-select { margin-left:8px; }
+.footer-small { font-size:12px; color:#666; margin-top:10px; }
