@@ -1,9 +1,7 @@
-// app/layout.tsx
+// src/app/layout.tsx
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
 import './globals.css'
-
-const inter = Inter({ subsets: ['latin'] })
+import ToastProvider from '@/providers/ToastProvider'
 
 export const metadata: Metadata = {
   title: 'BareMinimum - Build Wealth',
@@ -17,7 +15,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body>
+        <ToastProvider />
         <header className="border-b border-gray-200 bg-white">
           <div className="max-w-4xl mx-auto px-4 py-4">
             <h1 className="text-2xl font-bold text-gray-900">💸 BareMinimum</h1>

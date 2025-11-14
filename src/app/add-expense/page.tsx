@@ -1,90 +1,94 @@
-// app/add-expense/page.tsx
+// src/app/add-expense/page.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { getCurrentUser } from '@/lib/auth'
+import toast from 'react-hot-toast'
 
 const CATEGORIES = [
   '🥦 Groceries', '🍔 Food Delivery', '🚗 Transportation', 
   '💡 Bills', '🏠 Rent', '📈 Investments', '💰 Savings',
   '🎮 Entertainment', '👕 Personal', '🏥 Health', '✈️ Travel',
   '❓ Miscellaneous'
-] as const
+]
 
-const PAYMENT_METHODS = ['UPI', 'Cash', 'Netbanking', 'Card'] as const
+const PAYMENT_METHODS = ['UPI', 'Cash', 'Netbanking', 'Card']
 
 export default function AddExpense() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
-  const [authLoading, setAuthLoading] = useState(true)
   const [form, setForm] = useState({
     amount: '',
     category: '',
-    paymentMethod: 'UPI' as typeof PAYMENT_METHODS[number],
+    paymentMethod: 'UPI',
     merchant: '',
     description: ''
   })
 
-  // Check authentication on component mount
-  useEffect(() => {
-    checkAuth()
-  }, [])
-
-  const checkAuth = async () => {
-  try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      window.location.href = '/login'  // Use window.location for immediate redirect
-      return
-    }
-  } catch (error) {
-    console.error('Auth error:', error)
-    window.location.href = '/login'
-  } finally {
-    setAuthLoading(false)
-  }
-}
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.amount || !form.category) return
+    if (!form.amount || !form.category) {
+      toast.error('Please fill in amount and category')
+      return
+    }
 
     setLoading(true)
+    const toastId = toast.loading('Adding expense...')
     
     try {
-      const user = await getCurrentUser()
-      if (!user) {
-        router.push('/login')
-        return
+      // Use simple text user_id for now
+      const testUserId = 'test-user-123'
+      
+      const expenseData = {
+        user_id: testUserId,
+        amount: parseFloat(form.amount),
+        category: form.category,
+        payment_method: form.paymentMethod,
+        merchant: form.merchant || null,
+        description: form.description || null,
+        date: new Date().toISOString()
       }
 
-      const { error } = await supabase
-        .from('transactions')
-        .insert([{
-          user_id: user.id,
-          amount: parseFloat(form.amount),
-          category: form.category,
-          payment_method: form.paymentMethod,
-          merchant: form.merchant,
-          description: form.description,
-          date: new Date().toISOString()
-        }])
+      console.log('Inserting data:', expenseData)
 
-      if (error) throw error
+      // Use the new 'expenses' table
+      const { data, error } = await supabase
+        .from('expenses')
+        .insert([expenseData])
+        .select()
+
+      if (error) {
+        console.error('Supabase error:', error)
+        throw new Error(`Failed to save: ${error.message}`)
+      }
+
+      console.log('Insert successful! Data:', data)
+      toast.success('Expense added successfully!', { id: toastId })
       
-      // Success - redirect to dashboard
-      router.push('/')
-      router.refresh() // Refresh to show new data
-    } catch (error) {
-      console.error('Error adding expense:', error)
-      alert('Failed to add expense. Please try again.')
+      // Reset form
+      setForm({
+        amount: '',
+        category: '',
+        paymentMethod: 'UPI',
+        merchant: '',
+        description: ''
+      })
+      
+      // Redirect to dashboard
+      setTimeout(() => {
+        router.push('/')
+      }, 1000)
+
+    } catch (error: any) {
+      console.error('Error:', error)
+      toast.error(`Failed to add expense: ${error.message}`, { id: toastId })
     } finally {
       setLoading(false)
     }
   }
 
-  const updateForm = (updates: Partial<typeof form>) => {
+  const updateForm = (updates: any) => {
     setForm(prev => ({ ...prev, ...updates }))
   }
 
@@ -94,15 +98,6 @@ export default function AddExpense() {
     if (m.includes('zomato') || m.includes('swiggy')) return '🍔 Food Delivery'
     if (m.includes('uber') || m.includes('ola')) return '🚗 Transportation'
     return ''
-  }
-
-  // Show loading while checking auth
-  if (authLoading) {
-    return (
-      <div className="max-w-md mx-auto bg-white p-6 rounded-lg border text-center">
-        <p>Checking authentication...</p>
-      </div>
-    )
   }
 
   return (
@@ -163,7 +158,7 @@ export default function AddExpense() {
           </div>
         </div>
 
-        {/* Merchant with Auto-suggest */}
+        {/* Merchant */}
         <div>
           <label className="block text-sm font-medium mb-1">Merchant</label>
           <input
