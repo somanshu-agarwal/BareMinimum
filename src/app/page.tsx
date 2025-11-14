@@ -2,22 +2,20 @@
 import { expenseService } from '@/lib/supabase/client'
 import { DashboardStats } from '@/types/database'
 
-// This runs on the server - professional approach
 async function getDashboardData(): Promise<DashboardStats> {
   const testUserId = 'test-user-123'
   
   try {
     const expenses = await expenseService.getByUser(testUserId)
-    const currentMonth = new Date().toISOString().slice(0, 7) // YYYY-MM
+    const currentMonth = new Date().toISOString().slice(0, 7)
     
     const monthlyExpenses = expenses.filter(expense => 
       expense.date.startsWith(currentMonth)
     )
 
     const totalSpent = monthlyExpenses.reduce((sum, expense) => sum + expense.amount, 0)
-    const monthlyBudget = 50000 // Hardcoded for now - we'll make this dynamic
+    const monthlyBudget = 50000
     
-    // Calculate category breakdown
     const categoryMap = new Map()
     monthlyExpenses.forEach(expense => {
       const current = categoryMap.get(expense.category) || 0
@@ -29,16 +27,18 @@ async function getDashboardData(): Promise<DashboardStats> {
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 5)
 
+    const savingsRate = monthlyBudget > 0 ? 
+      Math.max(0, ((monthlyBudget - totalSpent) / monthlyBudget) * 100) : 0
+
     return {
       totalSpent,
       monthlyBudget,
-      savingsRate: monthlyBudget > 0 ? ((monthlyBudget - totalSpent) / monthlyBudget) * 100 : 0,
+      savingsRate,
       topCategories,
       recentExpenses: expenses.slice(0, 10)
     }
   } catch (error) {
     console.error('Error fetching dashboard data:', error)
-    // Return empty state - professional error handling
     return {
       totalSpent: 0,
       monthlyBudget: 50000,
@@ -51,10 +51,12 @@ async function getDashboardData(): Promise<DashboardStats> {
 
 export default async function Dashboard() {
   const stats = await getDashboardData()
+  const budgetUsage = (stats.totalSpent / stats.monthlyBudget) * 100
+  const isOverBudget = stats.totalSpent > stats.monthlyBudget
   
   return (
     <div className="space-y-8">
-      {/* Professional Header */}
+      {/* Header */}
       <section className="text-center">
         <h2 className="text-3xl font-bold text-gray-900 mb-2">
           Financial Dashboard
@@ -67,13 +69,50 @@ export default async function Dashboard() {
         </p>
       </section>
 
-      {/* Professional Stats Grid */}
+      {/* BUDGET ALERTS - SCARE FACTOR */}
+      {isOverBudget && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <span className="text-2xl">🚨</span>
+            </div>
+            <div className="ml-4">
+              <h3 className="text-lg font-semibold text-red-800">
+                Budget Exceeded!
+              </h3>
+              <p className="text-red-700">
+                You've spent ₹{(stats.totalSpent - stats.monthlyBudget).toLocaleString('en-IN')} over your monthly budget
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {budgetUsage >= 80 && !isOverBudget && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <span className="text-2xl">⚠️</span>
+            </div>
+            <div className="ml-4">
+              <h3 className="text-lg font-semibold text-yellow-800">
+                Budget Warning
+              </h3>
+              <p className="text-yellow-700">
+                You've used {budgetUsage.toFixed(0)}% of your monthly budget
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatCard
           title="Monthly Spending"
           value={stats.totalSpent}
           format="currency"
-          trend={stats.totalSpent > stats.monthlyBudget * 0.8 ? 'danger' : 'safe'}
+          trend={isOverBudget ? 'danger' : budgetUsage >= 80 ? 'warning' : 'safe'}
           subtitle={`Budget: ₹${stats.monthlyBudget.toLocaleString('en-IN')}`}
         />
         
@@ -86,15 +125,15 @@ export default async function Dashboard() {
         />
         
         <StatCard
-          title="Wealth Goal Progress"
-          value={12} // Hardcoded for now
+          title="Budget Used"
+          value={budgetUsage}
           format="percentage"
-          trend="positive"
-          subtitle="₹50L by 2030"
+          trend={isOverBudget ? 'danger' : budgetUsage >= 80 ? 'warning' : 'safe'}
+          subtitle={`₹${stats.totalSpent.toLocaleString('en-IN')} / ₹${stats.monthlyBudget.toLocaleString('en-IN')}`}
         />
       </div>
 
-      {/* Two Column Layout - Professional Dashboard Style */}
+      {/* Two Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Recent Expenses */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -142,13 +181,16 @@ export default async function Dashboard() {
         </div>
       </div>
 
-      {/* Quick Actions - Professional Style */}
+      {/* Quick Actions */}
       <QuickActions />
     </div>
   )
 }
 
-// Professional Component: Stat Card
+// Keep all the same component functions from previous version:
+// StatCard, ExpenseItem, CategoryItem, EmptyState, QuickActions
+// (They work perfectly, no changes needed)
+
 function StatCard({ 
   title, 
   value, 
@@ -190,7 +232,6 @@ function StatCard({
   )
 }
 
-// Professional Component: Expense Item
 function ExpenseItem({ expense }: { expense: any }) {
   return (
     <div className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors">
@@ -213,7 +254,6 @@ function ExpenseItem({ expense }: { expense: any }) {
   )
 }
 
-// Professional Component: Category Item  
 function CategoryItem({ category, rank }: { category: any; rank: number }) {
   return (
     <div className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors">
@@ -236,7 +276,6 @@ function CategoryItem({ category, rank }: { category: any; rank: number }) {
   )
 }
 
-// Professional Component: Empty State
 function EmptyState({ message, action }: { message: string; action: { label: string; href: string } }) {
   return (
     <div className="text-center py-8">
@@ -252,7 +291,6 @@ function EmptyState({ message, action }: { message: string; action: { label: str
   )
 }
 
-// Professional Component: Quick Actions
 function QuickActions() {
   return (
     <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-white">

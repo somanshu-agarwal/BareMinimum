@@ -1,13 +1,12 @@
 // src/lib/supabase/client.ts
 import { createClient } from '@supabase/supabase-js'
-import { Database } from '@/types/database'
+import type { Expense } from '@/types/database'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseKey)
+export const supabase = createClient(supabaseUrl, supabaseKey)
 
-// Professional data fetching functions
 export const expenseService = {
   async create(expense: Omit<Expense, 'id' | 'created_at'>) {
     const { data, error } = await supabase
@@ -28,21 +27,18 @@ export const expenseService = {
       .order('date', { ascending: false })
 
     if (error) throw error
-    return data
+    return data as Expense[]
   },
 
   async getMonthlyStats(userId: string, month: string) {
-    const startDate = `${month}-01`
-    const endDate = `${month}-31`
-
     const { data, error } = await supabase
       .from('expenses')
       .select('*')
       .eq('user_id', userId)
-      .gte('date', startDate)
-      .lte('date', endDate)
+      .gte('date', `${month}-01`)
+      .lte('date', `${month}-31`)
 
     if (error) throw error
-    return data
+    return data as Expense[]
   }
 }

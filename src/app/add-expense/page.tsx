@@ -3,17 +3,18 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
+import { ExpenseSchema, type ExpenseFormData } from '@/lib/validation'
 
 const CATEGORIES = [
   '🥦 Groceries', '🍔 Food Delivery', '🚗 Transportation', 
   '💡 Bills', '🏠 Rent', '📈 Investments', '💰 Savings',
   '🎮 Entertainment', '👕 Personal', '🏥 Health', '✈️ Travel',
   '❓ Miscellaneous'
-]
+] as const
 
-const PAYMENT_METHODS = ['UPI', 'Cash', 'Netbanking', 'Card']
+const PAYMENT_METHODS = ['UPI', 'Cash', 'Netbanking', 'Card'] as const
 
 export default function AddExpense() {
   const router = useRouter()
@@ -21,15 +22,32 @@ export default function AddExpense() {
   const [form, setForm] = useState({
     amount: '',
     category: '',
-    paymentMethod: 'UPI',
+    paymentMethod: 'UPI' as const,
     merchant: '',
     description: ''
   })
+  const [errors, setErrors] = useState<Record<string, string>>({})
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.amount || !form.category) {
-      toast.error('Please fill in amount and category')
+    setErrors({})
+
+    // Validate form data
+    const validationResult = ExpenseSchema.safeParse({
+      amount: parseFloat(form.amount),
+      category: form.category,
+      paymentMethod: form.paymentMethod,
+      merchant: form.merchant || undefined,
+      description: form.description || undefined
+    })
+
+    if (!validationResult.success) {
+      const fieldErrors: Record<string, string> = {}
+      validationResult.error.issues.forEach(issue => {
+        fieldErrors[issue.path[0]] = issue.message
+      })
+      setErrors(fieldErrors)
+      toast.error('Please fix the errors in the form')
       return
     }
 
@@ -37,33 +55,24 @@ export default function AddExpense() {
     const toastId = toast.loading('Adding expense...')
     
     try {
-      // Use simple text user_id for now
       const testUserId = 'test-user-123'
-      
-      const expenseData = {
-        user_id: testUserId,
-        amount: parseFloat(form.amount),
-        category: form.category,
-        payment_method: form.paymentMethod,
-        merchant: form.merchant || null,
-        description: form.description || null,
-        date: new Date().toISOString()
-      }
+      const expenseData = validationResult.data
 
-      console.log('Inserting data:', expenseData)
-
-      // Use the new 'expenses' table
       const { data, error } = await supabase
         .from('expenses')
-        .insert([expenseData])
+        .insert([{
+          user_id: testUserId,
+          amount: expenseData.amount,
+          category: expenseData.category,
+          payment_method: expenseData.paymentMethod,
+          merchant: expenseData.merchant || null,
+          description: expenseData.description || null,
+          date: new Date().toISOString()
+        }])
         .select()
 
-      if (error) {
-        console.error('Supabase error:', error)
-        throw new Error(`Failed to save: ${error.message}`)
-      }
+      if (error) throw error
 
-      console.log('Insert successful! Data:', data)
       toast.success('Expense added successfully!', { id: toastId })
       
       // Reset form
@@ -75,21 +84,26 @@ export default function AddExpense() {
         description: ''
       })
       
-      // Redirect to dashboard
+      // Redirect with cache invalidation
       setTimeout(() => {
         router.push('/')
+        router.refresh() // Refresh server components
       }, 1000)
 
     } catch (error: any) {
-      console.error('Error:', error)
+      console.error('Error adding expense:', error)
       toast.error(`Failed to add expense: ${error.message}`, { id: toastId })
     } finally {
       setLoading(false)
     }
   }
 
-  const updateForm = (updates: any) => {
+  const updateForm = (updates: Partial<typeof form>) => {
     setForm(prev => ({ ...prev, ...updates }))
+    // Clear errors when user starts typing
+    if (Object.keys(errors).length > 0) {
+      setErrors({})
+    }
   }
 
   const autoSuggestCategory = (merchant: string) => {
@@ -113,9 +127,14 @@ export default function AddExpense() {
             value={form.amount}
             onChange={(e) => updateForm({ amount: e.target.value })}
             placeholder="0.00"
-            className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+              errors.amount ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
+            }`}
             required
           />
+          {errors.amount && (
+            <p className="text-red-500 text-sm mt-1">{errors.amount}</p>
+          )}
         </div>
 
         {/* Category */}
@@ -130,13 +149,18 @@ export default function AddExpense() {
                 type="button"
                 onClick={() => updateForm({ category: cat })}
                 className={`p-3 border rounded-lg text-sm transition-colors ${
-                  form.category === cat ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'
+                  form.category === cat 
+                    ? 'border-blue-500 bg-blue-50 text-blue-700' 
+                    : 'border-gray-200 hover:bg-gray-50 text-gray-700'
                 }`}
               >
                 {cat}
               </button>
             ))}
           </div>
+          {errors.category && (
+            <p className="text-red-500 text-sm mt-1">{errors.category}</p>
+          )}
         </div>
 
         {/* Payment Method */}
@@ -149,7 +173,9 @@ export default function AddExpense() {
                 type="button"
                 onClick={() => updateForm({ paymentMethod: method })}
                 className={`p-3 border rounded-lg transition-colors ${
-                  form.paymentMethod === method ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'
+                  form.paymentMethod === method 
+                    ? 'border-blue-500 bg-blue-50 text-blue-700' 
+                    : 'border-gray-200 hover:bg-gray-50 text-gray-700'
                 }`}
               >
                 {method}
@@ -170,8 +196,13 @@ export default function AddExpense() {
               updateForm({ merchant, category })
             }}
             placeholder="Blinkit, Zomato, etc."
-            className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+              errors.merchant ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
+            }`}
           />
+          {errors.merchant && (
+            <p className="text-red-500 text-sm mt-1">{errors.merchant}</p>
+          )}
         </div>
 
         {/* Description */}
@@ -182,8 +213,13 @@ export default function AddExpense() {
             value={form.description}
             onChange={(e) => updateForm({ description: e.target.value })}
             placeholder="What was this for?"
-            className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+              errors.description ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
+            }`}
           />
+          {errors.description && (
+            <p className="text-red-500 text-sm mt-1">{errors.description}</p>
+          )}
         </div>
 
         {/* Buttons */}
@@ -191,7 +227,7 @@ export default function AddExpense() {
           <button
             type="button"
             onClick={() => router.push('/')}
-            className="flex-1 py-3 px-4 border rounded-lg font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+            className="flex-1 py-3 px-4 border border-gray-300 rounded-lg font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
             disabled={loading}
           >
             Cancel
