@@ -34,20 +34,24 @@ export default function Dashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="bg-white p-6 rounded-lg border border-gray-200">
-        <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
-        <div className="flex gap-4">
-          <button className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition">
-            ➕ Add Expense
-          </button>
-          <button className="bg-gray-100 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-200 transition">
-            💰 Set Income
-          </button>
-          <button className="bg-gray-100 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-200 transition">
-            🎯 Set Goal
-          </button>
+      
+        <div className="bg-white p-6 rounded-lg border border-gray-200">
+          <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
+          <div className="flex gap-4">
+            <a 
+              href="/add-expense"
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
+            >
+              ➕ Add Expense
+            </a>
+            <button className="bg-gray-100 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-200 transition">
+              💰 Set Income
+            </button>
+            <button className="bg-gray-100 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-200 transition">
+              🎯 Set Goal
+            </button>
+          </div>
         </div>
-      </div>
 
       {/* Recent Expenses */}
       <div className="bg-white p-6 rounded-lg border border-gray-200">
