@@ -1,6 +1,7 @@
 // src/app/add-expense/page.tsx
 'use client'
 
+import { getCurrentUserIdSafe } from '@/lib/auth'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
@@ -29,74 +30,75 @@ export default function AddExpense() {
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setErrors({})
+  e.preventDefault()
+  setErrors({})
 
-    // Validate form data
-    const validationResult = ExpenseSchema.safeParse({
-      amount: parseFloat(form.amount),
-      category: form.category,
-      paymentMethod: form.paymentMethod,
-      merchant: form.merchant || undefined,
-      description: form.description || undefined
+  // Validate form data
+  const validationResult = ExpenseSchema.safeParse({
+    amount: parseFloat(form.amount),
+    category: form.category,
+    paymentMethod: form.paymentMethod,
+    merchant: form.merchant || undefined,
+    description: form.description || undefined
+  })
+
+  if (!validationResult.success) {
+    const fieldErrors: Record<string, string> = {}
+    validationResult.error.issues.forEach(issue => {
+      fieldErrors[String(issue.path[0])] = issue.message
     })
-
-    if (!validationResult.success) {
-      const fieldErrors: Record<string, string> = {}
-      validationResult.error.issues.forEach(issue => {
-        fieldErrors[String(issue.path[0])] = issue.message
-      })
-      setErrors(fieldErrors)
-      toast.error('Please fix the errors in the form')
-      return
-    }
-
-    setLoading(true)
-    const toastId = toast.loading('Adding expense...')
-    
-    try {
-      const testUserId = 'test-user-123'
-      const expenseData = validationResult.data
-
-      const { data, error } = await supabase
-        .from('expenses')
-        .insert([{
-          user_id: testUserId,
-          amount: expenseData.amount,
-          category: expenseData.category,
-          payment_method: expenseData.paymentMethod,
-          merchant: expenseData.merchant || null,
-          description: expenseData.description || null,
-          date: new Date().toISOString()
-        }])
-        .select()
-
-      if (error) throw error
-
-      toast.success('Expense added successfully!', { id: toastId })
-      
-      // Reset form
-      setForm({
-        amount: '',
-        category: '',
-        paymentMethod: 'UPI',
-        merchant: '',
-        description: ''
-      })
-      
-      // Redirect with cache invalidation
-      setTimeout(() => {
-        router.push('/')
-        router.refresh()
-      }, 1000)
-
-    } catch (error: any) {
-      console.error('Error adding expense:', error)
-      toast.error(`Failed to add expense: ${error.message}`, { id: toastId })
-    } finally {
-      setLoading(false)
-    }
+    setErrors(fieldErrors)
+    toast.error('Please fix the errors in the form')
+    return
   }
+
+  setLoading(true)
+  const toastId = toast.loading('Adding expense...')
+  
+  try {
+    // 🚀 CHANGED: Use the dual-mode auth helper instead of hardcoded ID
+    const userId = await getCurrentUserIdSafe()
+    const expenseData = validationResult.data
+
+    const { data, error } = await supabase
+      .from('expenses')
+      .insert([{
+        user_id: userId, // 🚀 Now uses real user ID or safe fallback
+        amount: expenseData.amount,
+        category: expenseData.category,
+        payment_method: expenseData.paymentMethod,
+        merchant: expenseData.merchant || null,
+        description: expenseData.description || null,
+        date: new Date().toISOString()
+      }])
+      .select()
+
+    if (error) throw error
+
+    toast.success('Expense added successfully!', { id: toastId })
+    
+    // Reset form
+    setForm({
+      amount: '',
+      category: '',
+      paymentMethod: 'UPI',
+      merchant: '',
+      description: ''
+    })
+    
+    // Redirect with cache invalidation
+    setTimeout(() => {
+      router.push('/')
+      router.refresh()
+    }, 1000)
+
+  } catch (error: any) {
+    console.error('Error adding expense:', error)
+    toast.error(`Failed to add expense: ${error.message}`, { id: toastId })
+  } finally {
+    setLoading(false)
+  }
+}
 
   const updateForm = (updates: Partial<typeof form>) => {
     setForm(prev => ({ ...prev, ...updates }))
