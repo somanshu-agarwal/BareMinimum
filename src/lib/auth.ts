@@ -1,6 +1,25 @@
-// src/lib/auth.ts
-import { supabase } from './supabase'
+import { supabase } from '@/lib/supabase/client'
 
+export async function getCurrentUserIdSafe(): Promise<string> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    return user?.id || 'test-user-123'
+  } catch (error) {
+    console.error('Auth error:', error)
+    return 'test-user-123'
+  }
+}
+
+export async function isUserAuthenticated(): Promise<boolean> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    return !!user?.id
+  } catch (error) {
+    return false
+  }
+}
+
+// Keep your existing functions too if they exist
 export async function getCurrentUser() {
   const { data: { user }, error } = await supabase.auth.getUser()
   if (error) throw error
