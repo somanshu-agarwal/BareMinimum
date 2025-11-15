@@ -14,7 +14,10 @@ export type Expense = {
 export type DashboardStats = {
   totalSpent: number
   monthlyBudget: number
+  monthlyIncome: number
   savingsRate: number
+  actualSavings: number
   topCategories: { category: string; amount: number }[]
   recentExpenses: Expense[]
+  portfolio: any
 }

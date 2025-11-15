@@ -1,12 +1,16 @@
 // src/app/page.tsx
 import { expenseService } from '@/lib/supabase/client'
-import { DashboardStats } from '@/types/database'
+import { investmentService } from '@/lib/supabase/investments'
 
-async function getDashboardData(): Promise<DashboardStats> {
+async function getDashboardData() {
   const testUserId = 'test-user-123'
   
   try {
-    const expenses = await expenseService.getByUser(testUserId)
+    const [expenses, portfolio] = await Promise.all([
+      expenseService.getByUser(testUserId),
+      investmentService.getPortfolioSummary(testUserId)
+    ])
+
     const currentMonth = new Date().toISOString().slice(0, 7)
     
     const monthlyExpenses = expenses.filter(expense => 
@@ -15,7 +19,13 @@ async function getDashboardData(): Promise<DashboardStats> {
 
     const totalSpent = monthlyExpenses.reduce((sum, expense) => sum + expense.amount, 0)
     const monthlyBudget = 50000
+    const monthlyIncome = 85000
     
+    // PROPER SAVINGS CALCULATION
+    const actualSavings = monthlyIncome - totalSpent
+    const savingsRate = monthlyIncome > 0 ? 
+      Math.max(0, (actualSavings / monthlyIncome) * 100) : 0
+
     const categoryMap = new Map()
     monthlyExpenses.forEach(expense => {
       const current = categoryMap.get(expense.category) || 0
@@ -27,24 +37,27 @@ async function getDashboardData(): Promise<DashboardStats> {
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 5)
 
-    const savingsRate = monthlyBudget > 0 ? 
-      Math.max(0, ((monthlyBudget - totalSpent) / monthlyBudget) * 100) : 0
-
     return {
       totalSpent,
       monthlyBudget,
-      savingsRate,
+      monthlyIncome,
+      savingsRate: Math.min(savingsRate, 100),
+      actualSavings,
       topCategories,
-      recentExpenses: expenses.slice(0, 10)
+      recentExpenses: expenses.slice(0, 10),
+      portfolio
     }
   } catch (error) {
     console.error('Error fetching dashboard data:', error)
     return {
       totalSpent: 0,
       monthlyBudget: 50000,
+      monthlyIncome: 85000,
       savingsRate: 100,
+      actualSavings: 85000,
       topCategories: [],
-      recentExpenses: []
+      recentExpenses: [],
+      portfolio: null
     }
   }
 }
@@ -69,7 +82,7 @@ export default async function Dashboard() {
         </p>
       </section>
 
-      {/* BUDGET ALERTS - SCARE FACTOR */}
+      {/* Budget Alerts */}
       {isOverBudget && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-6">
           <div className="flex items-center">
@@ -107,7 +120,7 @@ export default async function Dashboard() {
       )}
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <StatCard
           title="Monthly Spending"
           value={stats.totalSpent}
@@ -120,8 +133,8 @@ export default async function Dashboard() {
           title="Savings Rate"
           value={stats.savingsRate}
           format="percentage"
-          trend={stats.savingsRate > 20 ? 'positive' : 'warning'}
-          subtitle="of monthly budget"
+          trend={stats.savingsRate > 20 ? 'positive' : stats.savingsRate > 10 ? 'warning' : 'danger'}
+          subtitle={`₹${stats.actualSavings.toLocaleString('en-IN')} saved`}
         />
         
         <StatCard
@@ -131,7 +144,58 @@ export default async function Dashboard() {
           trend={isOverBudget ? 'danger' : budgetUsage >= 80 ? 'warning' : 'safe'}
           subtitle={`₹${stats.totalSpent.toLocaleString('en-IN')} / ₹${stats.monthlyBudget.toLocaleString('en-IN')}`}
         />
+        
+        <StatCard
+          title="Monthly Income"
+          value={stats.monthlyIncome}
+          format="currency"
+          trend="safe"
+          subtitle="After tax & deductions"
+        />
       </div>
+
+      {/* Investment Portfolio Summary */}
+      {stats.portfolio && (
+        <div className="bg-gradient-to-r from-green-50 to-emerald-100 rounded-2xl p-8 border border-green-200">
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h3 className="text-2xl font-bold text-green-900">Investment Portfolio</h3>
+              <p className="text-green-700">Your path to financial freedom</p>
+            </div>
+            <a 
+              href="/investments"
+              className="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors"
+            >
+              📈 View Investments
+            </a>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white rounded-xl p-6 text-center">
+              <div className="text-2xl font-bold text-green-600 mb-2">
+                ₹{stats.portfolio.totalInvested.toLocaleString('en-IN')}
+              </div>
+              <div className="text-sm text-gray-600">Total Invested</div>
+            </div>
+            
+            <div className="bg-white rounded-xl p-6 text-center">
+              <div className={`text-2xl font-bold mb-2 ${
+                stats.portfolio.returnPercentage >= 0 ? 'text-green-600' : 'text-red-600'
+              }`}>
+                {stats.portfolio.returnPercentage.toFixed(1)}%
+              </div>
+              <div className="text-sm text-gray-600">Portfolio Return</div>
+            </div>
+            
+            <div className="bg-white rounded-xl p-6 text-center">
+              <div className="text-2xl font-bold text-blue-600 mb-2">
+                ₹{stats.portfolio.totalReturn.toLocaleString('en-IN')}
+              </div>
+              <div className="text-sm text-gray-600">Total Returns</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Two Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -187,10 +251,7 @@ export default async function Dashboard() {
   )
 }
 
-// Keep all the same component functions from previous version:
-// StatCard, ExpenseItem, CategoryItem, EmptyState, QuickActions
-// (They work perfectly, no changes needed)
-
+// Component: Stat Card
 function StatCard({ 
   title, 
   value, 
@@ -232,6 +293,7 @@ function StatCard({
   )
 }
 
+// Component: Expense Item
 function ExpenseItem({ expense }: { expense: any }) {
   return (
     <div className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors">
@@ -254,6 +316,7 @@ function ExpenseItem({ expense }: { expense: any }) {
   )
 }
 
+// Component: Category Item  
 function CategoryItem({ category, rank }: { category: any; rank: number }) {
   return (
     <div className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-colors">
@@ -276,6 +339,7 @@ function CategoryItem({ category, rank }: { category: any; rank: number }) {
   )
 }
 
+// Component: Empty State
 function EmptyState({ message, action }: { message: string; action: { label: string; href: string } }) {
   return (
     <div className="text-center py-8">
@@ -291,6 +355,7 @@ function EmptyState({ message, action }: { message: string; action: { label: str
   )
 }
 
+// Component: Quick Actions
 function QuickActions() {
   return (
     <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-white">
@@ -306,9 +371,18 @@ function QuickActions() {
           >
             ➕ Add Expense
           </a>
-          <button className="bg-transparent border border-white text-white px-6 py-3 rounded-lg font-semibold hover:bg-white/10 transition-colors">
+          <a 
+            href="/add-investment"
+            className="bg-transparent border border-white text-white px-6 py-3 rounded-lg font-semibold hover:bg-white/10 transition-colors"
+          >
+            📈 Add Investment
+          </a>
+          <a 
+            href="/analytics"
+            className="bg-transparent border border-white text-white px-6 py-3 rounded-lg font-semibold hover:bg-white/10 transition-colors"
+          >
             📊 View Analytics
-          </button>
+          </a>
         </div>
       </div>
     </div>

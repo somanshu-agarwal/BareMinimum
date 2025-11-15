@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
-import { ExpenseSchema, type ExpenseFormData } from '@/lib/validation'
+import { ExpenseSchema } from '@/lib/validation'
 
 const CATEGORIES = [
   '🥦 Groceries', '🍔 Food Delivery', '🚗 Transportation', 
@@ -22,7 +22,7 @@ export default function AddExpense() {
   const [form, setForm] = useState({
     amount: '',
     category: '',
-    paymentMethod: 'UPI' as const,
+    paymentMethod: 'UPI' as typeof PAYMENT_METHODS[number],
     merchant: '',
     description: ''
   })
@@ -44,7 +44,7 @@ export default function AddExpense() {
     if (!validationResult.success) {
       const fieldErrors: Record<string, string> = {}
       validationResult.error.issues.forEach(issue => {
-        fieldErrors[issue.path[0]] = issue.message
+        fieldErrors[String(issue.path[0])] = issue.message
       })
       setErrors(fieldErrors)
       toast.error('Please fix the errors in the form')
@@ -87,7 +87,7 @@ export default function AddExpense() {
       // Redirect with cache invalidation
       setTimeout(() => {
         router.push('/')
-        router.refresh() // Refresh server components
+        router.refresh()
       }, 1000)
 
     } catch (error: any) {
@@ -100,7 +100,6 @@ export default function AddExpense() {
 
   const updateForm = (updates: Partial<typeof form>) => {
     setForm(prev => ({ ...prev, ...updates }))
-    // Clear errors when user starts typing
     if (Object.keys(errors).length > 0) {
       setErrors({})
     }
@@ -132,9 +131,7 @@ export default function AddExpense() {
             }`}
             required
           />
-          {errors.amount && (
-            <p className="text-red-500 text-sm mt-1">{errors.amount}</p>
-          )}
+          {errors.amount && <p className="text-red-500 text-sm mt-1">{errors.amount}</p>}
         </div>
 
         {/* Category */}
@@ -158,9 +155,7 @@ export default function AddExpense() {
               </button>
             ))}
           </div>
-          {errors.category && (
-            <p className="text-red-500 text-sm mt-1">{errors.category}</p>
-          )}
+          {errors.category && <p className="text-red-500 text-sm mt-1">{errors.category}</p>}
         </div>
 
         {/* Payment Method */}
@@ -200,9 +195,7 @@ export default function AddExpense() {
               errors.merchant ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
             }`}
           />
-          {errors.merchant && (
-            <p className="text-red-500 text-sm mt-1">{errors.merchant}</p>
-          )}
+          {errors.merchant && <p className="text-red-500 text-sm mt-1">{errors.merchant}</p>}
         </div>
 
         {/* Description */}
@@ -217,9 +210,7 @@ export default function AddExpense() {
               errors.description ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-blue-500'
             }`}
           />
-          {errors.description && (
-            <p className="text-red-500 text-sm mt-1">{errors.description}</p>
-          )}
+          {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description}</p>}
         </div>
 
         {/* Buttons */}
